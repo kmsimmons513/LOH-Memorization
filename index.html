@@ -431,7 +431,22 @@
     setStatus("This browser can't do speech recognition. On iPhone, open this page in Safari.", true);
   }
 
+  // Keep the screen awake while listening: if the iPhone dims and locks, Safari cuts off the microphone.
+  var wakeLock = null;
+  function keepAwake() {
+    if (!("wakeLock" in navigator) || wakeLock) return;
+    navigator.wakeLock.request("screen").then(function (l) {
+      wakeLock = l;
+      l.addEventListener("release", function () { wakeLock = null; });
+    }).catch(function () {});
+  }
+  function allowSleep() { if (wakeLock) { wakeLock.release().catch(function () {}); wakeLock = null; } }
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && wanted) keepAwake();
+  });
+
   function finish(auto) {
+    allowSleep();
     wanted = false;
     if (rec) { try { rec.stop(); } catch (e) {} }
     var text = (finalText + " " + interim).trim();
@@ -458,7 +473,7 @@
     };
     rec.onerror = function (e) {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-        wanted = false; idleButton();
+        wanted = false; idleButton(); allowSleep();
         setStatus("Microphone or speech blocked. On iPhone, open this page in Safari (other browsers such as DuckDuckGo or Chrome can't use speech recognition on iPhone). In Safari, allow the microphone when asked, and make sure Siri & Dictation is on in Settings.", true);
       } else if (e.error !== "no-speech" && e.error !== "aborted") {
         setStatus("Speech error: " + e.error + ". Trying again…", true);
@@ -476,6 +491,7 @@
     if (!SR) return;
     if (!wanted) {
       wanted = true; restarts = 0; finalText = ""; interim = ""; showHeard();
+      keepAwake();
       document.getElementById("result").hidden = true;
       btn.textContent = "Stop and grade"; btn.classList.add("on");
       setStatus("Listening… recite at your praying pace. Pauses are fine.");
