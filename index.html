@@ -3,15 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Psalter Recitation — M1 Listening Test</title>
+<title>Psalter Recitation</title>
 <style>
   :root {
     --bg: #faf8f4; --ink: #222; --quiet: #6b6560; --line: #e2ddd5;
-    --accent: #7a2e2e; --accent-soft: #f3e6e3; --ok: #2f6b3a;
+    --accent: #7a2e2e; --ok: #2f6b3a;
+    --right: #2f6b3a; --close-bg: #f6e3b4; --close-ink: #6b4a00; --miss: #b3261e; --miss-bg: #f9dcd8;
   }
   @media (prefers-color-scheme: dark) {
     :root { --bg: #1b1a18; --ink: #ece8e1; --quiet: #a39d94; --line: #3a3733;
-            --accent: #d98a7e; --accent-soft: #3a2724; --ok: #8fc79a; }
+            --accent: #d98a7e; --ok: #8fc79a;
+            --right: #8fc79a; --close-bg: #4a3b12; --close-ink: #f0d58a; --miss: #ff8a80; --miss-bg: #4a1f1c; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink);
@@ -20,40 +22,54 @@
   h1 { font-size: 20px; margin: 0 0 2px; }
   .sub { color: var(--quiet); font-size: 14px; margin: 0 0 18px; }
   .card { border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-  .psalm-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .psalm-head h2 { font-size: 17px; margin: 0; }
+  .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .head h2 { font-size: 17px; margin: 0; }
   .psalm { font-family: Georgia, "Times New Roman", serif; font-size: 19px; line-height: 1.6; margin-top: 10px; }
-  .psalm .stanza { margin: 0 0 14px; }
+  .psalm .stanza { margin: 0 0 14px; transition: opacity .2s; }
+  .psalm .stanza.dim { opacity: .3; }
   .psalm sup { color: var(--quiet); font-family: -apple-system, sans-serif; font-size: 11px; margin-right: 3px; }
-  .psalm.hidden { filter: blur(7px); user-select: none; }
+  .psalm.hidden { filter: blur(8px); user-select: none; }
   button { font: inherit; border-radius: 10px; border: 1px solid var(--line); background: transparent;
            color: var(--ink); padding: 8px 12px; cursor: pointer; }
   button.small { font-size: 14px; padding: 5px 10px; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .chips button { font-size: 14px; padding: 4px 10px; border-radius: 999px; }
+  .chips button.sel { background: var(--ink); color: var(--bg); border-color: var(--ink); }
   #listen { width: 100%; font-size: 19px; font-weight: 600; padding: 16px; border: none;
             background: var(--accent); color: #fff; }
   #listen.on { background: var(--ok); }
   #status { color: var(--quiet); font-size: 14px; margin-top: 8px; min-height: 21px; }
   #status.err { color: var(--accent); }
-  #heard { font-family: Georgia, serif; font-size: 18px; min-height: 60px; white-space: pre-wrap; }
-  #heard .interim { color: var(--quiet); }
+  #heard { font-family: Georgia, serif; font-size: 17px; min-height: 40px; white-space: pre-wrap; color: var(--quiet); }
+  #heard .interim { opacity: .6; }
+  #summary { font-size: 17px; font-weight: 600; margin: 4px 0 6px; }
+  #summary.perfect { color: var(--right); }
+  .legend { font-size: 13px; color: var(--quiet); display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .graded { font-family: Georgia, serif; font-size: 19px; line-height: 1.75; }
+  .graded p { margin: 0 0 12px; }
+  .w-right { color: var(--right); }
+  .w-close { background: var(--close-bg); color: var(--close-ink); border-radius: 4px; padding: 0 2px; cursor: pointer; }
+  .w-miss { background: var(--miss-bg); color: var(--miss); text-decoration: underline wavy; border-radius: 4px; padding: 0 2px; cursor: pointer; }
+  #detail { font-size: 14px; color: var(--quiet); min-height: 20px; }
   textarea { width: 100%; min-height: 220px; font: 16px/1.5 Georgia, serif; padding: 10px;
              border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); }
   .help { color: var(--quiet); font-size: 14px; }
   .help li { margin-bottom: 4px; }
+  details summary { cursor: pointer; }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <main>
   <h1>Psalter Recitation</h1>
-  <p class="sub">Milestone 1: does your phone hear you correctly?</p>
+  <p class="sub">Milestone 2: recite from memory and see each word graded.</p>
 
   <section class="card">
-    <div class="psalm-head">
-      <h2 id="psalm-title">Psalm 95 (Douay-Rheims 94)</h2>
+    <div class="head">
+      <h2 id="psalm-title">Psalm 95</h2>
       <button class="small" id="toggle-text">Hide text</button>
     </div>
+    <div class="row chips" id="chips"></div>
     <div class="psalm" id="psalm"></div>
     <div class="row">
       <button class="small" id="edit-text">Use my own text</button>
@@ -70,34 +86,50 @@
   </section>
 
   <section class="card">
-    <button id="listen">Start listening</button>
-    <div id="status">Tap Start, then read the psalm aloud at your normal praying pace.</div>
+    <button id="listen">Start reciting</button>
+    <div id="status">Choose a stanza (or the whole psalm), hide the text, then tap Start.</div>
+  </section>
+
+  <section class="card" id="result" hidden>
+    <div class="head"><h2>Your recitation</h2></div>
+    <div id="summary"></div>
+    <div class="legend">
+      <span class="w-right">right</span>
+      <span class="w-close">close</span>
+      <span class="w-miss">missed</span>
+    </div>
+    <div class="graded" id="graded"></div>
+    <div id="detail">Tap a highlighted word to see what the phone heard.</div>
   </section>
 
   <section class="card">
-    <div class="psalm-head">
-      <h2>What the phone heard</h2>
-      <span class="row" style="margin:0">
+    <details>
+      <summary class="head"><h2 style="display:inline">What the phone heard</h2></summary>
+      <div class="row">
         <button class="small" id="copy">Copy</button>
         <button class="small" id="clear">Clear</button>
-      </span>
-    </div>
-    <div id="heard"></div>
+      </div>
+      <div id="heard"></div>
+    </details>
   </section>
 
   <section class="card help">
-    <strong>What to test</strong>
+    <strong>What to test (milestone 2)</strong>
     <ol>
-      <li>Read the psalm aloud with the text showing. Does the transcript mostly match?</li>
-      <li>Pause for 10 seconds in the middle. Does it keep listening?</li>
-      <li>Tap Copy and paste the transcript back to Claude, with a note on anything odd.</li>
+      <li>Recite a stanza correctly from memory. Is nearly every word green?</li>
+      <li>Recite it again but skip a word on purpose. Is that word marked missed?</li>
+      <li>Pause 10 seconds mid-stanza. Does it keep listening?</li>
+      <li>Say the stanza's last words. Does it stop and grade by itself?</li>
     </ol>
   </section>
 </main>
 
 <script>
 (function () {
-  // --- Psalm text (Douay-Rheims, public domain) -------------------------
+  "use strict";
+  // ======================================================================
+  // Text
+  // ======================================================================
   var DOUAY_95 = [
     ["Come let us praise the Lord with joy: let us joyfully sing to God our saviour.",
      "Let us come before his presence with thanksgiving; and make a joyful noise to him with psalms."],
@@ -111,64 +143,275 @@
      "Forty years long was I offended with that generation, and I said: These always err in heart.",
      "And these men have not known my ways: so I swore in my wrath that they shall not enter into my rest."]
   ];
-  var KEY = "psalter-m1-own-text";
+  var KEY_TEXT = "psalter-own-text";
+  var KEY_SEL = "psalter-selection";
 
   function store(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
   function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
 
-  var psalmEl = document.getElementById("psalm");
-  var titleEl = document.getElementById("psalm-title");
+  // A psalm = { title, stanzas: [ { lines: [ { num, text } ] } ] }
+  function douayPsalm() {
+    var n = 1;
+    return { title: "Psalm 95 (Douay-Rheims 94)", stanzas: DOUAY_95.map(function (st) {
+      return { lines: st.map(function (v) { return { num: n++, text: v }; }) };
+    }) };
+  }
+  function ownPsalm(text) {
+    return { title: "Your text", stanzas: text.trim().split(/\n\s*\n/).map(function (s) {
+      return { lines: s.trim().split("\n").map(function (l) { return { num: null, text: l.trim() }; }).filter(function (l) { return l.text; }) };
+    }) };
+  }
 
-  function esc(s) { return s.replace(/[&<>]/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c]; }); }
-
-  function renderDouay() {
-    var n = 1, html = "";
-    DOUAY_95.forEach(function (stanza) {
-      html += '<p class="stanza">';
-      stanza.forEach(function (v, i) {
-        html += (i ? " " : "") + "<sup>" + (n++) + "</sup>" + esc(v);
-      });
-      html += "</p>";
+  // ======================================================================
+  // Word matching: normalize, phonetic key, classify
+  // ======================================================================
+  var ONES = ["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve",
+              "thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"];
+  var TENS = ["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"];
+  function numWords(n) {
+    if (n < 20) return [ONES[n]];
+    if (n < 100) return [TENS[Math.floor(n / 10)]].concat(n % 10 ? [ONES[n % 10]] : []);
+    if (n < 1000) return [ONES[Math.floor(n / 100)], "hundred"].concat(n % 100 ? numWords(n % 100) : []);
+    if (n < 1000000) return numWords(Math.floor(n / 1000)).concat(["thousand"], n % 1000 ? numWords(n % 1000) : []);
+    return [String(n)];
+  }
+  function norm(w) {
+    return w.toLowerCase().replace(/[‘’']/g, "").replace(/[^a-z0-9]/g, "");
+  }
+  // Split into words; digits become number words.
+  function words(text) {
+    var out = [];
+    text.split(/[\s—–-]+/).forEach(function (raw) {
+      var n = norm(raw);
+      if (!n) return;
+      if (/^\d+$/.test(n)) { numWords(parseInt(n, 10)).forEach(function (x) { out.push(x); }); }
+      else out.push(n);
     });
-    psalmEl.innerHTML = html;
-    titleEl.textContent = "Psalm 95 (Douay-Rheims 94)";
+    return out;
+  }
+  // A rough sound-alike key (in the spirit of Metaphone), tuned to forgive dictation errors.
+  function pkey(w) {
+    if (!w) return "";
+    var s = w;
+    s = s.replace(/^(kn|gn|pn)/, "n").replace(/^wr/, "r").replace(/^wh/, "w").replace(/^x/, "s");
+    s = s.replace(/x/g, "ks").replace(/tch|ch|sh/g, "X").replace(/th/g, "0").replace(/ph/g, "f")
+         .replace(/gh(?![aeiou])/g, "").replace(/ck/g, "k").replace(/dg/g, "j")
+         .replace(/c(?=[iey])/g, "s").replace(/c/g, "k").replace(/q/g, "k").replace(/g(?=[iey])/g, "j")
+         .replace(/z/g, "s").replace(/v/g, "f").replace(/d/g, "t");
+    var first = s.charAt(0), rest = s.slice(1);
+    if (/[aeiouy]/.test(first)) first = w.length >= 4 ? "" : "A";
+    rest = rest.replace(/[aeiouyhw]/g, "");
+    return (first + rest).replace(/(.)\1+/g, "$1");
+  }
+  function lev(a, b) {
+    var m = a.length, n = b.length, d = [], i, j;
+    for (i = 0; i <= m; i++) { d.push([i]); }
+    for (j = 1; j <= n; j++) d[0][j] = j;
+    for (i = 1; i <= m; i++) for (j = 1; j <= n; j++)
+      d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+    return d[m][n];
+  }
+  // Compare an expected word with a heard word: "right", "close" or "miss".
+  function classify(exp, heard) {
+    if (exp === heard) return "right";
+    var ke = pkey(exp), kh = pkey(heard);
+    if (ke && ke === kh) return "right";            // sounds the same (rest / wrist)
+    var allow = Math.max(1, Math.floor(Math.max(ke.length, kh.length) / 3));
+    if (ke && kh && lev(ke, kh) <= allow) return "close";
+    var sim = 1 - lev(exp, heard) / Math.max(exp.length, heard.length);
+    if (sim >= 0.7) return "close";
+    return "miss";
+  }
+  var COST = { right: 0, close: 0.4, miss: 1 };
+
+  // ======================================================================
+  // Alignment: line up expected words with heard words (edit-distance style)
+  // ======================================================================
+  function align(exp, heard) {
+    var m = exp.length, n = heard.length, INF = 1e9;
+    var D = [], B = [];
+    for (var i = 0; i <= m; i++) { D.push(new Array(n + 1).fill(INF)); B.push(new Array(n + 1).fill(null)); }
+    D[0][0] = 0;
+    function relax(i, j, c, op) { if (c < D[i][j]) { D[i][j] = c; B[i][j] = op; } }
+    for (i = 0; i <= m; i++) for (var j = 0; j <= n; j++) {
+      if (i === 0 && j === 0) continue;
+      if (i > 0) relax(i, j, D[i-1][j] + 1, { t: "skip" });                    // expected word not said
+      if (j > 0) relax(i, j, D[i][j-1] + 0.7, { t: "extra" });                 // extra heard word
+      if (i > 0 && j > 0) {
+        var k = classify(exp[i-1], heard[j-1]);
+        relax(i, j, D[i-1][j-1] + COST[k], { t: "one", k: k });
+      }
+      if (i > 0 && j > 1) {                                                    // "four bears" = "forebears"
+        var k2 = classify(exp[i-1], heard[j-2] + heard[j-1]);
+        if (k2 !== "miss") relax(i, j, D[i-1][j-2] + COST[k2] + 0.1, { t: "merge", k: k2 });
+      }
+      if (i > 1 && j > 0) {                                                    // "to day" = "today"
+        var k3 = classify(exp[i-2] + exp[i-1], heard[j-1]);
+        if (k3 !== "miss") relax(i, j, D[i-2][j-1] + 2 * COST[k3] + 0.1, { t: "split", k: k3 });
+      }
+      if (i > 1 && j > 1) {                                                    // "an oath" = "a note"
+        var k4 = classify(exp[i-2] + exp[i-1], heard[j-2] + heard[j-1]);
+        if (k4 !== "miss") relax(i, j, D[i-2][j-2] + 2 * COST[k4] + 0.2, { t: "pair", k: k4 });
+      }
+    }
+    // Walk back to label each expected word.
+    var res = new Array(m), extras = 0;
+    i = m; j = n;
+    while (i > 0 || j > 0) {
+      var op = B[i][j];
+      if (op.t === "skip") { res[i-1] = { k: "miss", heard: "" }; i--; }
+      else if (op.t === "extra") { extras++; j--; }
+      else if (op.t === "one") { res[i-1] = { k: op.k, heard: heard[j-1] }; i--; j--; }
+      else if (op.t === "merge") { res[i-1] = { k: op.k, heard: heard[j-2] + " " + heard[j-1] }; i--; j -= 2; }
+      else if (op.t === "split") { res[i-1] = res[i-2] = { k: op.k, heard: heard[j-1] }; i -= 2; j--; }
+      else if (op.t === "pair") { var h = heard[j-2] + " " + heard[j-1]; res[i-1] = res[i-2] = { k: op.k, heard: h }; i -= 2; j -= 2; }
+    }
+    return { labels: res, extras: extras };
   }
 
-  function renderOwn(text) {
-    var stanzas = text.trim().split(/\n\s*\n/);
-    psalmEl.innerHTML = stanzas.map(function (s) {
-      return '<p class="stanza">' + s.trim().split("\n").map(esc).join("<br>") + "</p>";
+  // ======================================================================
+  // State and rendering
+  // ======================================================================
+  var psalm, sel = "all";
+  var psalmEl = document.getElementById("psalm");
+  var chipsEl = document.getElementById("chips");
+
+  function loadPsalm() {
+    var own = load(KEY_TEXT);
+    psalm = own ? ownPsalm(own) : douayPsalm();
+    document.getElementById("reset-text").hidden = !own;
+    document.getElementById("psalm-title").textContent = psalm.title;
+    var s = load(KEY_SEL);
+    sel = (s && (s === "all" || +s < psalm.stanzas.length)) ? s : "all";
+    renderChips(); renderPsalm();
+  }
+  function selectedStanzas() {
+    return sel === "all" ? psalm.stanzas.map(function (_, i) { return i; }) : [+sel];
+  }
+  function renderChips() {
+    var html = '<button data-sel="all" class="' + (sel === "all" ? "sel" : "") + '">Whole psalm</button>';
+    psalm.stanzas.forEach(function (_, i) {
+      html += '<button data-sel="' + i + '" class="' + (sel === String(i) ? "sel" : "") + '">Stanza ' + (i + 1) + "</button>";
+    });
+    chipsEl.innerHTML = html;
+  }
+  chipsEl.onclick = function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    sel = b.getAttribute("data-sel"); store(KEY_SEL, sel);
+    renderChips(); renderPsalm();
+  };
+  function renderPsalm() {
+    var picked = selectedStanzas();
+    psalmEl.innerHTML = psalm.stanzas.map(function (st, i) {
+      var body = st.lines.map(function (l) {
+        return (l.num ? "<sup>" + l.num + "</sup>" : "") + esc(l.text);
+      }).join(psalm.stanzas[0].lines[0].num ? " " : "<br>");
+      return '<p class="stanza' + (picked.indexOf(i) < 0 ? " dim" : "") + '">' + body + "</p>";
     }).join("");
-    titleEl.textContent = "Your text";
   }
+  loadPsalm();
 
-  function render() {
-    var own = load(KEY);
-    if (own) { renderOwn(own); document.getElementById("reset-text").hidden = false; }
-    else { renderDouay(); document.getElementById("reset-text").hidden = true; }
-  }
-  render();
-
-  // --- Text controls -----------------------------------------------------
+  // Text controls
   var toggle = document.getElementById("toggle-text");
-  toggle.onclick = function () {
-    var hidden = psalmEl.classList.toggle("hidden");
-    toggle.textContent = hidden ? "Show text" : "Hide text";
-  };
+  function setHidden(h) { psalmEl.classList.toggle("hidden", h); toggle.textContent = h ? "Show text" : "Hide text"; }
+  toggle.onclick = function () { setHidden(!psalmEl.classList.contains("hidden")); };
   var editor = document.getElementById("editor");
-  document.getElementById("edit-text").onclick = function () {
-    document.getElementById("paste").value = load(KEY) || "";
-    editor.hidden = false;
-  };
+  document.getElementById("edit-text").onclick = function () { document.getElementById("paste").value = load(KEY_TEXT) || ""; editor.hidden = false; };
   document.getElementById("cancel-text").onclick = function () { editor.hidden = true; };
   document.getElementById("save-text").onclick = function () {
     var t = document.getElementById("paste").value;
-    if (t.trim()) { store(KEY, t); }
-    editor.hidden = true; render();
+    if (t.trim()) { store(KEY_TEXT, t); store(KEY_SEL, "all"); }
+    editor.hidden = true; loadPsalm();
   };
-  document.getElementById("reset-text").onclick = function () { store(KEY, null); render(); };
+  document.getElementById("reset-text").onclick = function () { store(KEY_TEXT, null); store(KEY_SEL, "all"); loadPsalm(); };
 
-  // --- Listening ---------------------------------------------------------
+  // ======================================================================
+  // Grading
+  // ======================================================================
+  // Expected words for the selection, keeping display tokens.
+  function expectedTokens() {
+    var toks = [];
+    selectedStanzas().forEach(function (si) {
+      psalm.stanzas[si].lines.forEach(function (l, li) {
+        l.text.split(/\s+/).forEach(function (raw, ri) {
+          var ws = words(raw);
+          if (!ws.length) { toks.push({ raw: raw, ws: [], stanza: si, br: li > 0 && ri === 0, num: ri === 0 ? l.num : null }); return; }
+          toks.push({ raw: raw, ws: ws, stanza: si, br: li > 0 && ri === 0, num: ri === 0 ? l.num : null });
+        });
+      });
+    });
+    return toks;
+  }
+
+  function grade(heardText) {
+    var toks = expectedTokens();
+    var exp = [], owner = [];
+    toks.forEach(function (t, ti) { t.ws.forEach(function (w) { exp.push(w); owner.push(ti); }); });
+    var heard = words(heardText);
+    var a = align(exp, heard);
+    // Roll word labels up to display tokens (worst label wins).
+    var rank = { right: 0, close: 1, miss: 2 };
+    toks.forEach(function (t) { t.k = "right"; t.heard = []; });
+    a.labels.forEach(function (lab, wi) {
+      var t = toks[owner[wi]];
+      if (rank[lab.k] > rank[t.k]) t.k = lab.k;
+      if (lab.heard && t.heard.indexOf(lab.heard) < 0) t.heard.push(lab.heard);
+    });
+    var counts = { right: 0, close: 0, miss: 0 };
+    a.labels.forEach(function (l) { counts[l.k]++; });
+    showResult(toks, counts, exp.length);
+  }
+
+  function showResult(toks, counts, total) {
+    var sum = document.getElementById("summary");
+    if (!total) return;
+    if (counts.miss === 0) {
+      sum.textContent = "Perfect" + (counts.close ? " (" + counts.close + " close word" + (counts.close > 1 ? "s" : "") + " to check)" : "") + ".";
+      sum.className = "perfect";
+    } else {
+      sum.textContent = (total - counts.miss) + " of " + total + " words right; " + counts.miss + " missed.";
+      sum.className = "";
+    }
+    var html = "", cur = -1, isVerse = !!(psalm.stanzas[0].lines[0].num);
+    toks.forEach(function (t, i) {
+      if (t.stanza !== cur) { if (cur >= 0) html += "</p>"; html += "<p>"; cur = t.stanza; }
+      else html += (t.br && !isVerse) ? "<br>" : " ";
+      var cls = t.ws.length ? "w-" + t.k : "";
+      html += (t.num && isVerse ? "<sup>" + t.num + "</sup>" : "") +
+              '<span class="' + cls + '" data-i="' + i + '">' + esc(t.raw) + "</span>";
+    });
+    html += "</p>";
+    var g = document.getElementById("graded");
+    g.innerHTML = html;
+    g.onclick = function (e) {
+      var s = e.target.closest("span[data-i]"); if (!s) return;
+      var t = toks[+s.getAttribute("data-i")];
+      var d = document.getElementById("detail");
+      if (t.k === "right") d.textContent = "“" + t.raw + "” was heard correctly.";
+      else if (t.heard.length) d.textContent = "Expected “" + t.raw + "”; the phone heard “" + t.heard.join(" ") + "”.";
+      else d.textContent = "Expected “" + t.raw + "”; the phone heard nothing for it.";
+    };
+    document.getElementById("detail").textContent = "Tap a highlighted word to see what the phone heard.";
+    document.getElementById("result").hidden = false;
+    document.getElementById("result").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // Stop automatically once the last two words of the selection are heard (decision D6).
+  function reachedEnd(heardText) {
+    var exp = [];
+    expectedTokens().forEach(function (t) { exp = exp.concat(t.ws); });
+    var heard = words(heardText);
+    if (exp.length < 2 || heard.length < Math.max(2, exp.length * 0.6)) return false;
+    var tailE = exp.slice(-2).join(""), tailH = heard.slice(-2).join("");
+    var tailH3 = heard.slice(-3).join("");
+    return classify(tailE, tailH) !== "miss" || classify(tailE, tailH3) !== "miss" ||
+           (classify(exp[exp.length-1], heard[heard.length-1]) === "right" && classify(exp[exp.length-2], heard[heard.length-2]) !== "miss");
+  }
+
+  // ======================================================================
+  // Listening
+  // ======================================================================
   var btn = document.getElementById("listen");
   var statusEl = document.getElementById("status");
   var heardEl = document.getElementById("heard");
@@ -176,13 +419,24 @@
   var rec = null, wanted = false, finalText = "", interim = "", restarts = 0;
 
   function setStatus(msg, isErr) { statusEl.textContent = msg; statusEl.className = isErr ? "err" : ""; }
-  function show() {
-    heardEl.innerHTML = esc(finalText) + (interim ? '<span class="interim">' + esc(interim) + "</span>" : "");
+  function showHeard() {
+    heardEl.innerHTML = esc(finalText) + (interim ? '<span class="interim"> ' + esc(interim) + "</span>" : "");
   }
+  function idleButton() { btn.textContent = "Start reciting"; btn.classList.remove("on"); }
 
   if (!SR) {
     btn.disabled = true;
     setStatus("This browser can't do speech recognition. On iPhone, open this page in Safari.", true);
+  }
+
+  function finish(auto) {
+    wanted = false;
+    if (rec) { try { rec.stop(); } catch (e) {} }
+    var text = (finalText + " " + interim).trim();
+    idleButton();
+    setStatus(auto ? "Heard the last words; stopped and graded." :
+              "Stopped and graded." + (restarts ? " (Listening restarted itself " + restarts + " time" + (restarts > 1 ? "s" : "") + ".)" : ""));
+    if (text) grade(text); else setStatus("Nothing was heard. Check the microphone and try again.", true);
   }
 
   function startRec() {
@@ -194,25 +448,24 @@
       interim = "";
       for (var i = e.resultIndex; i < e.results.length; i++) {
         var t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) { finalText += (finalText && !/\s$/.test(finalText) ? " " : "") + t.trim(); }
+        if (e.results[i].isFinal) { finalText += (finalText ? " " : "") + t.trim(); }
         else { interim += t; }
       }
-      show();
+      showHeard();
+      if (wanted && reachedEnd(finalText + " " + interim)) finish(true);
     };
     rec.onerror = function (e) {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-        wanted = false;
-        btn.textContent = "Start listening"; btn.classList.remove("on");
+        wanted = false; idleButton();
         setStatus("Microphone or speech blocked. On iPhone, open this page in Safari (other browsers such as DuckDuckGo or Chrome can't use speech recognition on iPhone). In Safari, allow the microphone when asked, and make sure Siri & Dictation is on in Settings.", true);
       } else if (e.error !== "no-speech" && e.error !== "aborted") {
         setStatus("Speech error: " + e.error + ". Trying again…", true);
       }
     };
     rec.onend = function () {
-      // Browsers stop listening after silence; quietly restart to keep your place.
-      if (interim) { finalText += (finalText ? " " : "") + interim.trim(); interim = ""; show(); }
+      // Browsers stop listening after silence; quietly restart and keep your place.
+      if (interim) { finalText += (finalText ? " " : "") + interim.trim(); interim = ""; showHeard(); }
       if (wanted) { restarts++; setTimeout(function () { if (wanted) startRec(); }, 250); }
-      else { btn.textContent = "Start listening"; btn.classList.remove("on"); }
     };
     try { rec.start(); } catch (e) {}
   }
@@ -220,26 +473,28 @@
   btn.onclick = function () {
     if (!SR) return;
     if (!wanted) {
-      wanted = true; restarts = 0;
-      btn.textContent = "Stop listening"; btn.classList.add("on");
-      setStatus("Listening… read aloud. Pauses are fine.");
+      wanted = true; restarts = 0; finalText = ""; interim = ""; showHeard();
+      document.getElementById("result").hidden = true;
+      btn.textContent = "Stop and grade"; btn.classList.add("on");
+      setStatus("Listening… recite at your praying pace. Pauses are fine.");
       startRec();
     } else {
-      wanted = false;
-      setStatus("Stopped." + (restarts ? " (Listening restarted itself " + restarts + " time" + (restarts > 1 ? "s" : "") + ".)" : ""));
-      if (rec) rec.stop();
+      finish(false);
     }
   };
 
-  document.getElementById("clear").onclick = function () { finalText = ""; interim = ""; show(); };
+  document.getElementById("clear").onclick = function () { finalText = ""; interim = ""; showHeard(); };
   document.getElementById("copy").onclick = function () {
-    var text = finalText + (interim ? " " + interim : "");
+    var text = (finalText + " " + interim).trim();
     if (!navigator.clipboard) { setStatus("Copy isn't available here; select the text and copy it by hand.", true); return; }
     navigator.clipboard.writeText(text).then(
       function () { setStatus("Transcript copied. Paste it to Claude."); },
       function () { setStatus("Copy was blocked; select the text and copy it by hand.", true); }
     );
   };
+
+  // Exposed for testing only.
+  window.__psalter = { words: words, pkey: pkey, classify: classify, align: align, grade: grade, reachedEnd: reachedEnd };
 })();
 </script>
 </body>
