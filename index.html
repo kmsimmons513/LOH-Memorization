@@ -202,7 +202,8 @@
     rec.onerror = function (e) {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
         wanted = false;
-        setStatus("Microphone or speech blocked. On iPhone: Settings > Apps > Safari > Microphone > Allow, and make sure Siri & Dictation is on.", true);
+        btn.textContent = "Start listening"; btn.classList.remove("on");
+        setStatus("Microphone or speech blocked. On iPhone, open this page in Safari (other browsers such as DuckDuckGo or Chrome can't use speech recognition on iPhone). In Safari, allow the microphone when asked, and make sure Siri & Dictation is on in Settings.", true);
       } else if (e.error !== "no-speech" && e.error !== "aborted") {
         setStatus("Speech error: " + e.error + ". Trying again…", true);
       }
