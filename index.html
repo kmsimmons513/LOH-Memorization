@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Psalter Recitation — M1 Listening Test</title>
+<style>
+  :root {
+    --bg: #faf8f4; --ink: #222; --quiet: #6b6560; --line: #e2ddd5;
+    --accent: #7a2e2e; --accent-soft: #f3e6e3; --ok: #2f6b3a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1b1a18; --ink: #ece8e1; --quiet: #a39d94; --line: #3a3733;
+            --accent: #d98a7e; --accent-soft: #3a2724; --ok: #8fc79a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 17px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: 20px 18px 120px; }
+  h1 { font-size: 20px; margin: 0 0 2px; }
+  .sub { color: var(--quiet); font-size: 14px; margin: 0 0 18px; }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .psalm-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .psalm-head h2 { font-size: 17px; margin: 0; }
+  .psalm { font-family: Georgia, "Times New Roman", serif; font-size: 19px; line-height: 1.6; margin-top: 10px; }
+  .psalm .stanza { margin: 0 0 14px; }
+  .psalm sup { color: var(--quiet); font-family: -apple-system, sans-serif; font-size: 11px; margin-right: 3px; }
+  .psalm.hidden { filter: blur(7px); user-select: none; }
+  button { font: inherit; border-radius: 10px; border: 1px solid var(--line); background: transparent;
+           color: var(--ink); padding: 8px 12px; cursor: pointer; }
+  button.small { font-size: 14px; padding: 5px 10px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  #listen { width: 100%; font-size: 19px; font-weight: 600; padding: 16px; border: none;
+            background: var(--accent); color: #fff; }
+  #listen.on { background: var(--ok); }
+  #status { color: var(--quiet); font-size: 14px; margin-top: 8px; min-height: 21px; }
+  #status.err { color: var(--accent); }
+  #heard { font-family: Georgia, serif; font-size: 18px; min-height: 60px; white-space: pre-wrap; }
+  #heard .interim { color: var(--quiet); }
+  textarea { width: 100%; min-height: 220px; font: 16px/1.5 Georgia, serif; padding: 10px;
+             border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); }
+  .help { color: var(--quiet); font-size: 14px; }
+  .help li { margin-bottom: 4px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Psalter Recitation</h1>
+  <p class="sub">Milestone 1: does your phone hear you correctly?</p>
+
+  <section class="card">
+    <div class="psalm-head">
+      <h2 id="psalm-title">Psalm 95 (Douay-Rheims 94)</h2>
+      <button class="small" id="toggle-text">Hide text</button>
+    </div>
+    <div class="psalm" id="psalm"></div>
+    <div class="row">
+      <button class="small" id="edit-text">Use my own text</button>
+      <button class="small" id="reset-text" hidden>Back to Douay-Rheims</button>
+    </div>
+    <div id="editor" hidden>
+      <p class="help">Paste a psalm as printed: one line per line, a blank line between stanzas. It stays on this phone only.</p>
+      <textarea id="paste" placeholder="Paste the psalm here"></textarea>
+      <div class="row">
+        <button class="small" id="save-text">Use this text</button>
+        <button class="small" id="cancel-text">Cancel</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <button id="listen">Start listening</button>
+    <div id="status">Tap Start, then read the psalm aloud at your normal praying pace.</div>
+  </section>
+
+  <section class="card">
+    <div class="psalm-head">
+      <h2>What the phone heard</h2>
+      <span class="row" style="margin:0">
+        <button class="small" id="copy">Copy</button>
+        <button class="small" id="clear">Clear</button>
+      </span>
+    </div>
+    <div id="heard"></div>
+  </section>
+
+  <section class="card help">
+    <strong>What to test</strong>
+    <ol>
+      <li>Read the psalm aloud with the text showing. Does the transcript mostly match?</li>
+      <li>Pause for 10 seconds in the middle. Does it keep listening?</li>
+      <li>Tap Copy and paste the transcript back to Claude, with a note on anything odd.</li>
+    </ol>
+  </section>
+</main>
+
+<script>
+(function () {
+  // --- Psalm text (Douay-Rheims, public domain) -------------------------
+  var DOUAY_95 = [
+    ["Come let us praise the Lord with joy: let us joyfully sing to God our saviour.",
+     "Let us come before his presence with thanksgiving; and make a joyful noise to him with psalms."],
+    ["For the Lord is a great God, and a great King above all gods.",
+     "For in his hand are all the ends of the earth: and the heights of the mountains are his.",
+     "For the sea is his, and he made it: and his hands formed the dry land."],
+    ["Come let us adore and fall down: and weep before the Lord that made us.",
+     "For he is the Lord our God: and we are the people of his pasture and the sheep of his hand."],
+    ["To day if you shall hear his voice, harden not your hearts:",
+     "As in the provocation, according to the day of temptation in the wilderness: where your fathers tempted me, they proved me, and saw my works.",
+     "Forty years long was I offended with that generation, and I said: These always err in heart.",
+     "And these men have not known my ways: so I swore in my wrath that they shall not enter into my rest."]
+  ];
+  var KEY = "psalter-m1-own-text";
+
+  function store(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
+  function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+
+  var psalmEl = document.getElementById("psalm");
+  var titleEl = document.getElementById("psalm-title");
+
+  function esc(s) { return s.replace(/[&<>]/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c]; }); }
+
+  function renderDouay() {
+    var n = 1, html = "";
+    DOUAY_95.forEach(function (stanza) {
+      html += '<p class="stanza">';
+      stanza.forEach(function (v, i) {
+        html += (i ? " " : "") + "<sup>" + (n++) + "</sup>" + esc(v);
+      });
+      html += "</p>";
+    });
+    psalmEl.innerHTML = html;
+    titleEl.textContent = "Psalm 95 (Douay-Rheims 94)";
+  }
+
+  function renderOwn(text) {
+    var stanzas = text.trim().split(/\n\s*\n/);
+    psalmEl.innerHTML = stanzas.map(function (s) {
+      return '<p class="stanza">' + s.trim().split("\n").map(esc).join("<br>") + "</p>";
+    }).join("");
+    titleEl.textContent = "Your text";
+  }
+
+  function render() {
+    var own = load(KEY);
+    if (own) { renderOwn(own); document.getElementById("reset-text").hidden = false; }
+    else { renderDouay(); document.getElementById("reset-text").hidden = true; }
+  }
+  render();
+
+  // --- Text controls -----------------------------------------------------
+  var toggle = document.getElementById("toggle-text");
+  toggle.onclick = function () {
+    var hidden = psalmEl.classList.toggle("hidden");
+    toggle.textContent = hidden ? "Show text" : "Hide text";
+  };
+  var editor = document.getElementById("editor");
+  document.getElementById("edit-text").onclick = function () {
+    document.getElementById("paste").value = load(KEY) || "";
+    editor.hidden = false;
+  };
+  document.getElementById("cancel-text").onclick = function () { editor.hidden = true; };
+  document.getElementById("save-text").onclick = function () {
+    var t = document.getElementById("paste").value;
+    if (t.trim()) { store(KEY, t); }
+    editor.hidden = true; render();
+  };
+  document.getElementById("reset-text").onclick = function () { store(KEY, null); render(); };
+
+  // --- Listening ---------------------------------------------------------
+  var btn = document.getElementById("listen");
+  var statusEl = document.getElementById("status");
+  var heardEl = document.getElementById("heard");
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var rec = null, wanted = false, finalText = "", interim = "", restarts = 0;
+
+  function setStatus(msg, isErr) { statusEl.textContent = msg; statusEl.className = isErr ? "err" : ""; }
+  function show() {
+    heardEl.innerHTML = esc(finalText) + (interim ? '<span class="interim">' + esc(interim) + "</span>" : "");
+  }
+
+  if (!SR) {
+    btn.disabled = true;
+    setStatus("This browser can't do speech recognition. On iPhone, open this page in Safari.", true);
+  }
+
+  function startRec() {
+    rec = new SR();
+    rec.lang = "en-US";
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.onresult = function (e) {
+      interim = "";
+      for (var i = e.resultIndex; i < e.results.length; i++) {
+        var t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) { finalText += (finalText && !/\s$/.test(finalText) ? " " : "") + t.trim(); }
+        else { interim += t; }
+      }
+      show();
+    };
+    rec.onerror = function (e) {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        wanted = false;
+        setStatus("Microphone or speech blocked. On iPhone: Settings > Apps > Safari > Microphone > Allow, and make sure Siri & Dictation is on.", true);
+      } else if (e.error !== "no-speech" && e.error !== "aborted") {
+        setStatus("Speech error: " + e.error + ". Trying again…", true);
+      }
+    };
+    rec.onend = function () {
+      // Browsers stop listening after silence; quietly restart to keep your place.
+      if (interim) { finalText += (finalText ? " " : "") + interim.trim(); interim = ""; show(); }
+      if (wanted) { restarts++; setTimeout(function () { if (wanted) startRec(); }, 250); }
+      else { btn.textContent = "Start listening"; btn.classList.remove("on"); }
+    };
+    try { rec.start(); } catch (e) {}
+  }
+
+  btn.onclick = function () {
+    if (!SR) return;
+    if (!wanted) {
+      wanted = true; restarts = 0;
+      btn.textContent = "Stop listening"; btn.classList.add("on");
+      setStatus("Listening… read aloud. Pauses are fine.");
+      startRec();
+    } else {
+      wanted = false;
+      setStatus("Stopped." + (restarts ? " (Listening restarted itself " + restarts + " time" + (restarts > 1 ? "s" : "") + ".)" : ""));
+      if (rec) rec.stop();
+    }
+  };
+
+  document.getElementById("clear").onclick = function () { finalText = ""; interim = ""; show(); };
+  document.getElementById("copy").onclick = function () {
+    var text = finalText + (interim ? " " + interim : "");
+    if (!navigator.clipboard) { setStatus("Copy isn't available here; select the text and copy it by hand.", true); return; }
+    navigator.clipboard.writeText(text).then(
+      function () { setStatus("Transcript copied. Paste it to Claude."); },
+      function () { setStatus("Copy was blocked; select the text and copy it by hand.", true); }
+    );
+  };
+})();
+</script>
+</body>
+</html>
