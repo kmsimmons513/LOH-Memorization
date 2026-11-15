@@ -278,6 +278,8 @@
   var chipsEl = document.getElementById("chips");
 
   function loadPsalm() {
+    var old = load("psalter-m1-own-text");               // text pasted in milestone 1
+    if (old && !load(KEY_TEXT)) { store(KEY_TEXT, old); store("psalter-m1-own-text", null); }
     var own = load(KEY_TEXT);
     psalm = own ? ownPsalm(own) : douayPsalm();
     document.getElementById("reset-text").hidden = !own;
