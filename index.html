@@ -445,23 +445,32 @@
     if (document.visibilityState === "visible" && wanted) keepAwake();
   });
 
-  function finish(auto) {
+  function finish(auto, keepStatus) {
     allowSleep();
     wanted = false;
     if (rec) { try { rec.stop(); } catch (e) {} }
     var text = (finalText + " " + interim).trim();
     idleButton();
-    setStatus(auto ? "Heard the last words; stopped and graded." :
+    if (!keepStatus) setStatus(auto ? "Heard the last words; stopped and graded." :
               "Stopped and graded." + (restarts ? " (Listening restarted itself " + restarts + " time" + (restarts > 1 ? "s" : "") + ".)" : ""));
     if (text) grade(text); else setStatus("Nothing was heard. Check the microphone and try again.", true);
   }
 
-  function startRec() {
-    rec = new SR();
-    rec.lang = "en-US";
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.onresult = function (e) {
+  // One recognizer, reused. iPhone Safari often fails with "audio-capture" when a fresh
+  // recognizer grabs the microphone before the last one has let go, so restarts reuse
+  // this one and wait longer after each failure.
+  var failures = 0, reconnecting = false;
+  function makeRec() {
+    var r = new SR();
+    r.lang = "en-US";
+    r.continuous = true;
+    r.interimResults = true;
+    r.onstart = function () {
+      if (reconnecting && wanted) setStatus("Listening\u2026 (microphone reconnected)");
+      reconnecting = false;
+    };
+    r.onresult = function (e) {
+      failures = 0;
       interim = "";
       for (var i = e.resultIndex; i < e.results.length; i++) {
         var t = e.results[i][0].transcript;
@@ -471,26 +480,46 @@
       showHeard();
       if (wanted && reachedEnd(finalText + " " + interim)) finish(true);
     };
-    rec.onerror = function (e) {
+    r.onerror = function (e) {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
         wanted = false; idleButton(); allowSleep();
         setStatus("Microphone or speech blocked. On iPhone, open this page in Safari (other browsers such as DuckDuckGo or Chrome can't use speech recognition on iPhone). In Safari, allow the microphone when asked, and make sure Siri & Dictation is on in Settings.", true);
+      } else if (e.error === "audio-capture" || e.error === "network") {
+        failures++;
+        if (wanted) { reconnecting = true; setStatus("Reconnecting the microphone\u2026 keep going."); }
       } else if (e.error !== "no-speech" && e.error !== "aborted") {
-        setStatus("Speech error: " + e.error + ". Trying again…", true);
+        failures++;
+        if (wanted) setStatus("Speech error: " + e.error + ". Trying again\u2026", true);
       }
     };
-    rec.onend = function () {
-      // Browsers stop listening after silence; quietly restart and keep your place.
+    r.onend = function () {
+      // Browsers stop listening after silence; restart and keep your place.
       if (interim) { finalText += (finalText ? " " : "") + interim.trim(); interim = ""; showHeard(); }
-      if (wanted) { restarts++; setTimeout(function () { if (wanted) startRec(); }, 250); }
+      if (!wanted) return;
+      if (failures >= 5) {
+        setStatus("The microphone kept dropping out, so I graded what was heard. Try again in a quieter moment.", true);
+        finish(false, true);
+        return;
+      }
+      restarts++;
+      var wait = failures ? Math.min(3000, 700 * failures) : 300;
+      setTimeout(function () { if (wanted) startRec(); }, wait);
     };
-    try { rec.start(); } catch (e) {}
+    return r;
+  }
+  function startRec() {
+    if (!rec) rec = makeRec();
+    try { rec.start(); }
+    catch (e) {   // still starting or stopping: try again shortly
+      failures++;
+      setTimeout(function () { if (wanted) startRec(); }, 700);
+    }
   }
 
   btn.onclick = function () {
     if (!SR) return;
     if (!wanted) {
-      wanted = true; restarts = 0; finalText = ""; interim = ""; showHeard();
+      wanted = true; restarts = 0; failures = 0; reconnecting = false; finalText = ""; interim = ""; showHeard();
       keepAwake();
       document.getElementById("result").hidden = true;
       btn.textContent = "Stop and grade"; btn.classList.add("on");
